@@ -22,6 +22,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <link rel="import" href="../../test-fixture/test-fixture.html">
   <link rel="import" href="../paper-tooltip.html">
   <link rel="import" href="test-button.html">
+  <link rel="import" href="test-shadow-component.html">
 
 </head>
 <style>
@@ -111,6 +112,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     </template>
   </test-fixture>
 
+  <test-fixture id="shadow-dom">
+    <template>
+      <div>
+        <test-shadow-component id="target-shadow"></test-shadow-component>
+        <paper-tooltip for="target" animation-delay="0" search-in-shadow-dom="target-shadow">Tooltip text</paper-tooltip>
+      </div>
+    </template>
+  </test-fixture>
 
   <script>
     function isHidden(element) {
@@ -524,6 +533,94 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         expect(divRect.height).to.be.equal(20);
 
         contentRect = tooltip.getBoundingClientRect();
+        expect(contentRect.width).to.be.equal(70);
+        expect(contentRect.height).to.be.equal(30);
+
+        // The target div width is 100, and the tooltip width is 70, and
+        // it's centered. The height of the target div is 20, and the
+        // tooltip is 14px below.
+        expect(contentRect.left).to.be.equal((100 - 70)/2);
+        expect(contentRect.top).to.be.equal(20 + 14);
+
+        // Also check the math, just in case.
+        expect(contentRect.left).to.be.equal((divRect.width - contentRect.width)/2);
+        expect(contentRect.top).to.be.equal(divRect.height + tooltip.offset);
+      });
+    });
+
+    suite("tooltip is applied to element in sub-shadow-DOM", function() {
+      test('tooltip is shown when a target is focused', function() {
+        var f = fixture('shadow-dom');
+        var target = (f.querySelector('#target-shadow').shadowRoot || f.querySelector('#target-shadow')).querySelector('#target');
+        var tooltip = f.querySelector('paper-tooltip');
+
+        var actualTooltip = Polymer.dom(tooltip.root).querySelector('#tooltip');
+        assert.isTrue(isHidden(actualTooltip));
+
+        MockInteractions.focus(target);
+        assert.isFalse(isHidden(actualTooltip));
+        MockInteractions.blur(target);
+      });
+
+      test('tooltip is hidden after a target is blurred', function(done) {
+        var f = fixture('shadow-dom');
+        var target = (f.querySelector('#target-shadow').shadowRoot || f.querySelector('#target-shadow')).querySelector('#target');
+        var tooltip = f.querySelector('paper-tooltip');
+
+        var actualTooltip = Polymer.dom(tooltip.root).querySelector('#tooltip');
+        assert.isTrue(isHidden(actualTooltip));
+        // Simulate but don't actually run the entry animation.
+        tooltip.toggleClass('hidden', false, actualTooltip);
+        tooltip._showing = true;
+        assert.isFalse(isHidden(actualTooltip));
+
+        tooltip.addEventListener('neon-animation-finish', function() {
+          assert.isTrue(isHidden(actualTooltip));
+          done();
+        });
+        MockInteractions.blur(target);
+      });
+
+      test('tooltip unlistens to target on detach', function(done) {
+        var f = fixture('shadow-dom');
+        var target = (f.querySelector('#target-shadow').shadowRoot || f.querySelector('#target-shadow')).querySelector('#target');
+        var tooltip = f.querySelector('paper-tooltip');
+
+        sinon.spy(tooltip, 'show');
+
+        MockInteractions.focus(target);
+        expect(tooltip.show.callCount).to.be.equal(1);
+
+        MockInteractions.focus(target);
+        expect(tooltip.show.callCount).to.be.equal(2);
+
+        f.removeChild(tooltip);
+
+        setTimeout(function() {
+          // No more listener means no more calling show.
+          MockInteractions.focus(target);
+          MockInteractions.focus(target);
+          expect(tooltip.show.callCount).to.be.equal(2);
+          done();
+        }, 200);
+      });
+
+      test('tooltip is positioned correctly', function() {
+        var f = fixture('shadow-dom');
+        var target = (f.querySelector('#target-shadow').shadowRoot || f.querySelector('#target-shadow')).querySelector('#target');
+        var tooltip = f.querySelector('paper-tooltip');
+
+        var actualTooltip = Polymer.dom(tooltip.root).querySelector('#tooltip');
+        assert.isTrue(isHidden(actualTooltip));
+
+        MockInteractions.focus(target);
+        assert.isFalse(isHidden(actualTooltip));
+
+        var divRect = target.getBoundingClientRect();
+        expect(divRect.width).to.be.equal(100);
+        expect(divRect.height).to.be.equal(20);
+
+        var contentRect = tooltip.getBoundingClientRect();
         expect(contentRect.width).to.be.equal(70);
         expect(contentRect.height).to.be.equal(30);
 
