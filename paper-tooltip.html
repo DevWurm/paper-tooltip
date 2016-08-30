@@ -198,6 +198,14 @@ Custom property | Description | Default
           }
         },
 
+        /**
+         *  If set to an ID the tooltip searches for the target element(s) in the shadow DOM underneath the specified element
+         */
+        searchInShadowDom: {
+          type: String,
+          value: ''
+        },
+
         _showing: {
           type: Boolean,
           value: false
@@ -216,14 +224,22 @@ Custom property | Description | Default
       get target () {
         var parentNode = Polymer.dom(this).parentNode;
         // If the parentNode is a document fragment, then we need to use the host.
-        var ownerRoot = Polymer.dom(this).getOwnerRoot();
+        var ownerRoot = Polymer.dom(this).getOwnerRoot() ;
 
         var target;
         if (this.for) {
-          if (Polymer.dom(ownerRoot).querySelector('#' + this.for)) {
-            target = [Polymer.dom(ownerRoot).querySelector('#' + this.for)];
-          } else if (Polymer.dom(ownerRoot).querySelectorAll('.' + this.for) && Polymer.dom(ownerRoot).querySelectorAll('.' + this.for).length > 0){
-            target = Polymer.dom(ownerRoot).querySelectorAll('.' + this.for);
+          // search in a sub-shadow-dom if one is specified, otherwise just search in the host. First try to get a
+          // native shadow-dom in the specified shadow element (shadowRoot), otherwise just use the shadow element
+          // itself as basis
+          var selectionRoot = this.searchInShadowDom
+                  ? Polymer.dom(ownerRoot || parentNode).querySelector('#' + this.searchInShadowDom).shadowRoot
+                      || Polymer.dom(ownerRoot|| parentNode).querySelector('#' + this.searchInShadowDom)
+                  : Polymer.dom(ownerRoot);
+
+          if (selectionRoot.querySelector('#' + this.for)) {
+            target = [selectionRoot.querySelector('#' + this.for)];
+          } else if (selectionRoot.querySelectorAll('.' + this.for) && selectionRoot.querySelectorAll('.' + this.for).length > 0){
+            target = Array.from(selectionRoot.querySelectorAll('.' + this.for));
           } else {
             target = undefined;
           }
